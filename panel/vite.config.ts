@@ -10,6 +10,9 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },
+  optimizeDeps: {
+    include: ['@xrc/shared'],
+  },
   server: {
     port: 5173,
     proxy: {
