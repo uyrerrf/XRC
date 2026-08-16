@@ -1,4 +1,11 @@
-import type { ApiRes, Command, DeviceInfo, DeviceSummary, LogEntry, StatsRes } from '@xrc/shared';
+import type {
+  ApiRes,
+  Command,
+  DeviceInfo,
+  DeviceSummary,
+  LogEntry,
+  StatsRes,
+} from '@xrc/shared';
 
 async function api<T = unknown>(path: string, init?: RequestInit): Promise<ApiRes<T>> {
   const res = await fetch(path, {
@@ -20,24 +27,16 @@ export const apiClient = {
   stats: () => api<StatsRes>('/api/stats'),
   devices: () => api<{ devices: DeviceSummary[]; total: number }>('/api/devices'),
   device: (id: string) => api<DeviceInfo>(`/api/devices/${id}`),
-  deviceEvents: (id: string, limit = 100) =>
-    api<LogEntry[]>(`/api/devices/${id}/events?limit=${limit}`),
-  logs: (params?: { type?: string; deviceId?: string; search?: string; page?: number; pageSize?: number }) => {
-    const q = new URLSearchParams();
-    if (params?.type) q.set('type', params.type);
-    if (params?.deviceId) q.set('deviceId', params.deviceId);
-    if (params?.search) q.set('search', params.search);
-    q.set('page', String(params?.page ?? 1));
-    q.set('pageSize', String(params?.pageSize ?? 50));
-    return api<{ logs: LogEntry[]; total: number }>(`/api/logs?${q}`);
+  logs: (deviceId?: string, kind?: string, limit = 200) => {
+    const p = new URLSearchParams();
+    if (deviceId) p.set('deviceId', deviceId);
+    if (kind) p.set('kind', kind);
+    p.set('limit', String(limit));
+    return api<{ logs: LogEntry[] }>(`/api/logs?${p.toString()}`);
   },
-  clearLogs: () => api('/api/logs', { method: 'DELETE' }),
-  sendCommand: (id: string, command: Command) =>
-    api(`/api/devices/${id}/command`, { method: 'POST', body: JSON.stringify({ command }) }),
-  bulkCommand: (deviceIds: string[], command: Command) =>
-    api<{ id: string; delivered: boolean }[]>('/api/commands/bulk', {
+  sendCommand: (deviceId: string, command: Command) =>
+    api<{ accepted: boolean; queued: boolean }>(`/api/devices/${deviceId}/command`, {
       method: 'POST',
-      body: JSON.stringify({ deviceIds, command }),
+      body: JSON.stringify(command),
     }),
-  deleteDevice: (id: string) => api(`/api/devices/${id}`, { method: 'DELETE' }),
 };
