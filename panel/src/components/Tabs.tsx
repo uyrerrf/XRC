@@ -3,7 +3,15 @@ export interface TabItem {
   label: string;
 }
 
-export default function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: string; onChange: (key: string) => void }) {
+export default function Tabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: readonly TabItem[];
+  active: string;
+  onChange: (key: string) => void;
+}) {
   return (
     <div className="flex gap-1 overflow-x-auto border-b border-slate-800">
       {tabs.map((t) => (
