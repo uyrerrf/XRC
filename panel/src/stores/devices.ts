@@ -3,15 +3,11 @@ import { io, type Socket } from 'socket.io-client';
 import type { Command, DeviceInfo, DeviceSummary, ImplantEvent, StatsRes } from '@xrc/shared';
 import { apiClient } from '@/api/client';
 
-export interface LiveEvent extends ImplantEvent {
-  localTs: number;
-}
-
-interface DeviceStore {
+interface DeviceState {
   devices: DeviceSummary[];
   detail: DeviceInfo | null;
   stats: StatsRes | null;
-  events: LiveEvent[];
+  events: (ImplantEvent & { localTs: number })[];
   socket: Socket | null;
   connected: boolean;
   busyCommandId: string | null;
@@ -22,7 +18,7 @@ interface DeviceStore {
   clearEvents: () => void;
 }
 
-export const useDeviceStore = create<DeviceStore>((set, get) => ({
+export const useDeviceStore = create<DeviceState>((set, get) => ({
   devices: [],
   detail: null,
   stats: null,
