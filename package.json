@@ -1,0 +1,16 @@
+{
+  "name": "xrc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XRC — Red Cell RAT: implant C2, dark command panel",
+  "workspaces": ["shared", "server", "panel"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "npm run build -w @xrc/shared && npm run build -w @xrc/panel && npm run build -w @xrc/server",
+    "dev:shared": "npm run dev -w @xrc/shared",
+    "dev:server": "npm run build -w @xrc/shared && npm run dev -w @xrc/server",
+    "dev:panel": "npm run build -w @xrc/shared && npm run dev -w @xrc/panel",
+    "start": "npm run start -w @xrc/server",
+    "typecheck": "npm run build -w @xrc/shared && npm run typecheck -w @xrc/server && npm run typecheck -w @xrc/panel"
+  }
+}
