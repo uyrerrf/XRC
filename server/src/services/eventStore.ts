@@ -4,7 +4,13 @@ import { getDb } from '../db/index.js';
 import { eventLogs, type EventLogRow } from '../db/schema.js';
 
 function mapLog(r: EventLogRow): LogEntry {
-  return { id: r.id, ts: r.ts, type: r.type as LogEntry['type'], deviceId: r.deviceId, text: r.text };
+  return {
+    id: String(r.id),
+    ts: r.ts,
+    kind: r.type,
+    deviceId: r.deviceId ?? '',
+    message: r.text,
+  };
 }
 
 export function insertEvent(e: { ts: number; type: string; deviceId: string | null; text: string; data?: string }): void {
