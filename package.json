@@ -1,16 +1,41 @@
-{
-  "name": "xrc",
-  "version": "1.0.0",
-  "private": true,
-  "description": "XRC — Red Cell RAT: implant C2, dark command panel",
-  "workspaces": ["shared", "server", "panel"],
-  "engines": { "node": ">=22" },
-  "scripts": {
-    "build": "npm run build -w @xrc/shared && npm run build -w @xrc/panel && npm run build -w @xrc/server",
-    "dev:shared": "npm run dev -w @xrc/shared",
-    "dev:server": "npm run build -w @xrc/shared && npm run dev -w @xrc/server",
-    "dev:panel": "npm run build -w @xrc/shared && npm run dev -w @xrc/panel",
-    "start": "npm run start -w @xrc/server",
-    "typecheck": "npm run build -w @xrc/shared && npm run typecheck -w @xrc/server && npm run typecheck -w @xrc/panel"
-  }
-}
+# syntax=docker/dockerfile:1
+FROM node:22-slim AS build
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Manifests first (layer caching) — ALL workspaces
+COPY package.json package-lock.json* ./
+COPY shared/package.json shared/
+COPY server/package.json server/
+COPY panel/package.json panel/
+
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+
+# ------------------------- runtime -------------------------
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=10000
+
+# Full workspace manifests + lockfile for a real install
+COPY --from=build /app/package.json /app/package-lock.json* ./
+COPY --from=build /app/shared/package.json shared/
+COPY --from=build /app/server/package.json server/
+COPY --from=build /app/panel/package.json panel/
+
+# Fresh install — npm re-creates correct hoisting + workspace symlinks
+RUN npm ci --omit=dev --no-audit --no-fund
+
+# Compiled output
+COPY --from=build /app/shared/dist shared/dist/
+COPY --from=build /app/server/dist server/dist/
+COPY --from=build /app/panel/dist panel/dist/
+
+EXPOSE 10000
+CMD ["npm", "start"]
