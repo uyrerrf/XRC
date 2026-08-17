@@ -1,8 +1,10 @@
 export {
+  PROTOCOL_VERSION,
   CMD,
   type DeviceStatus,
   type Command,
   type CommandMessage,
+  type Envelope,
   type CommandAck,
   type DeviceSummary,
   type KeylogEntry,
