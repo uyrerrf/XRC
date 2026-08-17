@@ -258,6 +258,7 @@ export interface StatsRes {
   otps24h: number;
   captures24h: number;
   overlaysServed: number;
+  byStatus: { online: number; offline: number; frozen: number };
   byModel: Record<string, number>;
 }
 
