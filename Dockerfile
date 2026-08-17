@@ -3,7 +3,6 @@ FROM node:22-slim AS build
 WORKDIR /app
 
 # install deps first (layer caching) — workspaces need the manifests present
-COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY server/package.json server/
 COPY panel/package.json frontend/
