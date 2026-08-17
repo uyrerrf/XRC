@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY server/package.json server/
-COPY frontend/package.json frontend/
+COPY panel/package.json frontend/
 RUN npm install
 
 # full source, then compile all workspaces
@@ -23,6 +23,6 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/shared ./shared
 COPY --from=build /app/server ./server
-COPY --from=build /app/frontend ./frontend
+COPY --from=build /app/panel ./panel
 
 CMD ["node", "server/dist/index.js"]
